@@ -1,0 +1,2 @@
+# Lightweight-SCNNs
+A lightweight implementation for self-correcting neural networks.
