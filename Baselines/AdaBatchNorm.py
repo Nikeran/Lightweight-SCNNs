@@ -3,15 +3,20 @@ import torch.nn as nn
 
 
 class AdaBatchNorm2d(nn.Module):
-    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True, U=1.0):
+    def __init__(self, num_features, bnn=None, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True, U=0.5):
         super().__init__()
          # input/output: (B, num_features, H, W)
         self.bn = nn.BatchNorm2d(num_features=num_features, eps=eps, momentum=momentum,
                                  affine=affine, track_running_stats=track_running_stats) # (B, num_features, H, W)
         # U: interpolation factor
+        self.bn = bnn
         self.U = U
 
     def forward(self, x):
+
+        if self.training:
+            # If training, use the standard BatchNorm behavior
+            return self.bn(x)
         # Current batch stats
         batch_mean = x.mean([0, 2, 3]) # (C,)
         batch_var = x.var([0, 2, 3], unbiased=False) # (C,)

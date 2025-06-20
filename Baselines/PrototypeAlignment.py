@@ -15,11 +15,11 @@ class PrototypeAlignment(nn.Module):
 	def forward(self, x): # (B, C, H, W)
 		B, C, H, W = x.size()
 		feat = x.view(B, C, -1).mean(dim=2) # H and W wise mean, (B, C)
-		dists = torch.cdist(x=feat, y=self.protorypes) # (B, P)
+		dists = torch.cdist(x1=feat, x2=self.prototypes) # (B, P)
 		idx = torch.argmin(dists, dim=1) #  closest prototype (B) 
 		nearest_p = self.prototypes[idx] # (B, C)
 		# Compute channel-wise offset and apply in one step
-		delta = self.alpha * (nearest - feat)          # (B, C)
+		delta = self.alpha * (nearest_p - feat)          # (B, C)
 		delta = delta.view(B, C, 1, 1).expand_as(x)    # (B, C, H, W)
 		return x + delta                               # (B, C, H, W)
 
