@@ -11,7 +11,7 @@ class KoLeoLoss(nn.Module):
 
     def forward(self, feats: torch.Tensor) -> torch.Tensor:
         # feats: (B, D), assumed l2‐normalized
-        dists = torch.cdist(feats, feats) + self.eps        # (B, B)
+        dists = torch.cdist(x1=feats, x2=feats) + self.eps        # (B, B)
         nn_dist = dists.min(dim=1).values                  # (B,) nearest‐neighbor
         return -nn_dist.log().mean()                       # –E[log d_i]
 

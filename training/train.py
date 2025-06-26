@@ -4,9 +4,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from training.train import KoleoLoss#, SinkhornCentering
+#from training.train import KoleoLoss#, SinkhornCentering
 
-from utils.losses import sinkhorn_loss
+from utils.losses import KoLeoLoss
 
 def format_time(seconds: float) -> str:
 	seconds = int(seconds)
@@ -33,8 +33,8 @@ def train_model(
 	best_val_acc = 0.0
 
 	ce_fn = criterion#nn.CrossEntropyLoss()
-	koleo_fn = KoleoLoss()
-	sinkhorn_fn = SinkhornCentering(iters=3, eps=0.04) 
+	koleo_fn = KoLeoLoss()
+	#sinkhorn_fn = SinkhornCentering(iters=3, eps=0.04) 
 
 	print(f"\n=== Training baseline: {name} ===")
 	model_start_time = time.time()
@@ -51,6 +51,7 @@ def train_model(
 			inputs, targets = inputs.to(device), targets.to(device)
 			optimizer.zero_grad()
 			feat, outputs = model(inputs)
+			#print(outputs.shape, targets.shape)
 			#cross entropy loss
 			ce_loss = ce_fn(outputs, targets)
 			# sinkhorn lossba
@@ -79,7 +80,7 @@ def train_model(
 		with torch.no_grad():
 			for inputs, targets in test_loader:
 				inputs, targets = inputs.to(device), targets.to(device)
-				outputs = model(inputs)
+				feat, outputs = model(inputs)
 				loss = criterion(outputs, targets)
 				val_running_loss += loss.item() * inputs.size(0)
 				_, preds = outputs.max(1)
