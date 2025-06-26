@@ -49,13 +49,41 @@ class ModifiedResNetBlock(nn.Module):
         return out
 
 
+class ModifiedResNet18(nn.Module):
+    def __init__(self, num_classes=10, **kwargs):
+        super().__init__()
+        full = build_model(num_classes, **kwargs)
+        # everything except the final fc:
+        self.backbone = nn.Sequential(
+            full.conv1,
+            full.bn1,
+            full.relu,
+            full.maxpool,
+            full.layer1,
+            full.layer2,
+            full.layer3,
+            full.layer4,
+        )
+        # global pooling + fc:
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.classifier = full.fc
+
+    def forward(self, x):
+        x = self.backbone(x)                   # -> (B, C, H, W)
+        feat = self.pool(x).flatten(1)         # -> (B, C)
+        logits = self.classifier(feat)         # -> (B, num_classes)
+        return feat, logits
+
+
 def build_model(num_classes=10, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False):
-    model = __import__('torchvision.models').models.resnet18(pretrained=False)
+    model = models.resnet18(pretrained=False)
     model.conv1 = nn.Conv2d(3,64,3,1,1,bias=False)
     # always keep initial BN intact (or AdaBN), RBN only in blocks
     model.bn1 = model.bn1
     model.maxpool = nn.Identity()
+    print("model: ", model)
     for name, module in model.named_children():
+        print(f"Processing {name}...")
         if name.startswith('layer'):
             blocks = []
             for blk in module:
@@ -67,6 +95,7 @@ def build_model(num_classes=10, use_adabn=False, use_cbam=False, use_proto=False
                     use_rbn=use_rbn
                 ))
             setattr(model, name, nn.Sequential(*blocks))
+    print("Model blocks modified successfully.")
     model.fc = nn.Linear(model.fc.in_features, num_classes)
     return model
 
