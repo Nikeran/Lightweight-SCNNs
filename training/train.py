@@ -59,7 +59,7 @@ def train_model(
 			# KoLeo loss
 			k_loss = koleo_fn(outputs)
 			# Combine losses
-			loss = ce_loss + 0.1 * k_loss
+			loss = ce_loss #+ 0.1 * k_loss
 
 			loss.backward()
 			optimizer.step()
