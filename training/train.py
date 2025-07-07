@@ -155,8 +155,11 @@ def train_protonet(
 			query_labels = query_labels.view(B * n_Q).to(device)		
 			optimizer.zero_grad()
 
-			outputs = model(supp_imgs, supp_labels, query_imgs)
+			outputs = model(supp_imgs, supp_labels, query_imgs) 
 			loss = criterion(outputs, query_labels)
+
+			#print(f"[DEBUG] logits.shape = {outputs.shape}")
+			#print(f"[DEBUG] query_labels.min() = {query_labels.min().item()}, max() = {query_labels.max().item()}")
 
 			loss.backward()
 			optimizer.step()
@@ -176,6 +179,7 @@ def train_protonet(
 		val_total = 0
 		with torch.no_grad():
 			for supp_imgs, supp_labels, query_imgs, query_labels in test_loader:
+				#print(f"[DEBUG] supp_imgs.shape = {supp_imgs.shape}, supp_labels.shape = {supp_labels.shape}")
 				B, n_S, C, H, W = supp_imgs.shape
 				_, n_Q, _, _, _ = query_imgs.shape
 

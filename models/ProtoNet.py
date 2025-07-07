@@ -26,12 +26,13 @@ class ProtoNet18(nn.Module):
                   logits[i, j] = -||f(query_i) - prototype_j||^2
         """
         # embed support and query
-        _, supp_emb = self.encoder(support_imgs)   # [N_supp, D]
-        _, qry_emb  = self.encoder(query_imgs)     # [N_query, D]
+        supp_emb, _ = self.encoder(support_imgs)   # [N_supp, D]
+        qry_emb, _  = self.encoder(query_imgs)     # [N_query, D]
 
         # find unique classes in support set
         classes = torch.unique(support_labels)
         n_way = len(classes)
+        #print(f"Number of classes: {n_way}, Classes: {classes}")
 
         # compute prototypes: mean embedding per class
         prototypes = []
@@ -43,6 +44,7 @@ class ProtoNet18(nn.Module):
             #print(f"Support embeddings shape: {supp_emb[mask].shape}")
             # supp_emb[mask] is [n_samples, D] for this class
             proto = supp_emb[mask].mean(dim=0)   # [D]
+            #print(f"Prototype for class {c}: {proto.shape}")
             prototypes.append(proto)
         prototypes = torch.stack(prototypes)   # [n_way, D]
 
