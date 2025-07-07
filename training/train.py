@@ -175,7 +175,7 @@ def train_protonet(
 		val_correct = 0
 		val_total = 0
 		with torch.no_grad():
-			for supp_imgs, supp_labels, query_imgs, query_labels in train_loader:
+			for supp_imgs, supp_labels, query_imgs, query_labels in test_loader:
 				B, n_S, C, H, W = supp_imgs.shape
 				_, n_Q, _, _, _ = query_imgs.shape
 

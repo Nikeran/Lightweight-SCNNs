@@ -141,7 +141,7 @@ class ImageNetC(Dataset):
 					label = self.filename_to_label[fname]
 					self.samples.append((str(img_path), label, corruption_name, severity))
 
-		print(f"✔️  Collected {len(self.samples)} ImageNet‐C samples across all corruptions/severities.")
+		print(f"Collected {len(self.samples)} ImageNet‐C samples across all corruptions/severities.")
 
 	def __len__(self):
 		return len(self.samples)
