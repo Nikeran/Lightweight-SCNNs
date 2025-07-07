@@ -1,7 +1,55 @@
 import os
 import numpy as np
+import torch
+import torch.nn as nn
 from torch.utils.data import Dataset
 from torchvision import transforms
+from collections import defaultdict
+import random
+import pickle
+
+def load_cifar10(data_dir, train=True, img_size=32):
+    """
+    Loads CIFAR-10 as two concatenated tensors.
+
+    Args:
+        data_dir (str): path to the 'cifar-10-batches-py' folder
+        train (bool): if True, loads all 5 training batches;
+                      if False, loads the single test batch.
+
+    Returns:
+        images (Tensor): shape [N, 3, 32, 32], float32 scaled to [0,1]
+        labels (LongTensor): shape [N]
+    """
+    # choose files
+    if train:
+        batch_files = [f"data_batch_{i}" for i in range(1, 6)]
+    else:
+        batch_files = ["test_batch"]
+
+    all_imgs = []
+    all_lbls = []
+
+    for fname in batch_files:
+        path = os.path.join(data_dir, fname)
+        with open(path, 'rb') as f:
+            batch = pickle.load(f, encoding='latin1')
+
+        # reshape and normalize
+        data = batch['data']                    # numpy (10000, 3072)
+        data = data.reshape(-1, 3, img_size, img_size)      # (10000, 3, 32, 32)
+        data = torch.from_numpy(data).float() / 255.0
+
+        labels = torch.tensor(batch['labels'], dtype=torch.long)
+
+        all_imgs.append(data)
+        all_lbls.append(labels)
+
+    images = torch.cat(all_imgs, dim=0)   # e.g. (50000, 3, 32, 32) if train
+    labels = torch.cat(all_lbls, dim=0)   # e.g. (50000,)
+
+    return images, labels
+
 
 class ImgClassificationDataset(Dataset):
 	"""
@@ -105,3 +153,72 @@ class ImageNetC(Dataset):
 			img = self.transform(img)
 		# We return a tuple of (tensor_img, label, corruption_name, severity)
 		return img, label, corruption_name, severity
+	
+
+class FewShotDataset(nn.Module):
+	"""
+	Same generic image dataset, but this time for each individual sample we give few-shot examples for calibration
+	"""
+	def __init__(self, data, labels, n_classes, n_supp, n_queries, transform=None):
+		"""
+		images:   Tensor [N, C, H, W] or list of PILs
+		labels:   LongTensor [N]
+		n_classes:    number of classes per episode/batch
+		k_shot:   support examples per class
+		q_queries: query examples per class
+		"""
+		self.n_classes = n_classes
+		self.n_supp = n_supp
+		self.n_queries = n_queries
+
+		# Load data
+		self.data = data#.numpy()
+		self.labels = labels.numpy()
+		self.transform = transform
+
+		# Create support and querry structures
+		# group indices by class
+		self.idx_by_class = defaultdict(list)
+		for idx, label in enumerate(self.labels):
+			self.idx_by_class[label].append(idx)
+		#print(self.idx_by_class)
+		self.classes = list(self.idx_by_class.keys())
+
+	# number of episodes
+	def __len__(self):
+		return 1000
+	
+	def __getitem__(self, idx):
+		# sample n_way classes
+		sampled_classes = random.sample(self.classes, self.n_classes)
+
+		supp_idxs = []
+		query_idxs = []
+		#print(f"Sampled classes: {sampled_classes}")
+		for cl in sampled_classes:
+			#print(len(self.idx_by_class[cl]), "samples for class", cl)
+			#print(f"Sampling {self.n_supp + self.n_queries} indices for class {cl}")
+			idxs = random.sample(self.idx_by_class[cl], self.n_supp + self.n_queries)
+			#print(f"Class {cl} indices: {idxs}")
+			supp_idxs += idxs[:self.n_supp]
+			query_idxs += idxs[self.n_supp:]
+
+		supp_imgs = self.data[supp_idxs]
+		query_imgs = self.data[query_idxs]
+		supp_labels = torch.LongTensor(self.labels[supp_idxs])
+		query_labels = torch.LongTensor(self.labels[query_idxs])
+
+		#print(f"Supp imgs shape: {supp_imgs.shape}, Supp labels shape: {supp_labels.shape}")
+		#print(f"Query imgs shape: {query_imgs.shape}, Query labels shape: {query_labels.shape}")
+		return supp_imgs, supp_labels, query_imgs, query_labels
+		
+
+
+
+# supp_data [B, n_Cl, C, H, W]
+# supp_lb [B, n_Cl]
+# query_data [B, n_Cl, C, H, W]
+# query_lb [B, n_Cl]
+
+
+
