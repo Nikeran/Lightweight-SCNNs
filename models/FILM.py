@@ -63,19 +63,19 @@ class FiLMNet18_SGC(nn.Module):
         super().__init__()
         self.c_dim = c_dim
         self.num_classes = num_classes
-        # --- stem ---
+        # stem 
         self.conv1   = nn.Conv2d(3, 64, 7, 2, 3, bias=False)
         self.bn1     = nn.BatchNorm2d(64)
         self.relu    = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(3, 2, 1)
 
-        # --- FiLM‐ResNet18 blocks ---
+        # FiLM‐ResNet18 blocks 
         self.layer1 = self._make_layer(64,  64,  c_dim, blocks=2, stride=1)
         self.layer2 = self._make_layer(64, 128,  c_dim, blocks=2, stride=2)
         self.layer3 = self._make_layer(128,256,  c_dim, blocks=2, stride=2)
         self.layer4 = self._make_layer(256,512,  c_dim, blocks=2, stride=2)
 
-        # --- context generator: from final conv features to c_dim ---
+        # context generator: from final conv features to c_dim 
         # we assume x after layer4 is [B,512,H',W']
         self.ctx_conv = nn.Sequential(
             nn.Conv2d(512, 256, 3, padding=1, bias=False),
@@ -172,17 +172,17 @@ class FiLMNet50_SGC(nn.Module):
     def __init__(self, c_dim, num_classes=10):
         super().__init__()
         self.c_dim = c_dim
-        # --- stem ---
+        # stem 
         self.conv1   = nn.Conv2d(3, 64, 7, 2, 3, bias=False)
         self.bn1     = nn.BatchNorm2d(64)
         self.relu    = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(3, 2, 1)
-        # --- FiLM-ResNet50 blocks ---
+        # FiLM-ResNet50 blocks 
         self.layer1 = self._make_layer(64,  64,  c_dim, blocks=3, stride=1)
         self.layer2 = self._make_layer(256, 128, c_dim, blocks=4, stride=2)
         self.layer3 = self._make_layer(512, 256, c_dim, blocks=6, stride=2)
         self.layer4 = self._make_layer(1024,512, c_dim, blocks=3, stride=2)
-        # --- context generator: from final conv features to c_dim ---
+        # context generator: from final conv features to c_dim 
         self.ctx_conv = nn.Sequential(
             nn.Conv2d(2048, 512, 3, padding=1, bias=False),
             nn.BatchNorm2d(512),
@@ -192,7 +192,7 @@ class FiLMNet50_SGC(nn.Module):
             nn.Linear(512, c_dim),        # [B,c_dim]
             nn.ReLU(inplace=True),
         )
-        # --- head ---
+        # head 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc      = nn.Linear(2048, num_classes)
 

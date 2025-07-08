@@ -48,6 +48,7 @@ def train_model(
 		correct = 0
 		total = 0
 		for inputs, targets in train_loader:
+			print(inputs.shape, targets.shape)
 			inputs, targets = inputs.to(device), targets.to(device)
 			optimizer.zero_grad()
 			feat, outputs = model(inputs)
