@@ -9,46 +9,46 @@ import random
 import pickle
 
 def load_cifar10(data_dir, train=True, img_size=32):
-    """
-    Loads CIFAR-10 as two concatenated tensors.
+	"""
+	Loads CIFAR-10 as two concatenated tensors.
 
-    Args:
-        data_dir (str): path to the 'cifar-10-batches-py' folder
-        train (bool): if True, loads all 5 training batches;
-                      if False, loads the single test batch.
+	Args:
+		data_dir (str): path to the 'cifar-10-batches-py' folder
+		train (bool): if True, loads all 5 training batches;
+					  if False, loads the single test batch.
 
-    Returns:
-        images (Tensor): shape [N, 3, 32, 32], float32 scaled to [0,1]
-        labels (LongTensor): shape [N]
-    """
-    # choose files
-    if train:
-        batch_files = [f"data_batch_{i}" for i in range(1, 6)]
-    else:
-        batch_files = ["test_batch"]
+	Returns:
+		images (Tensor): shape [N, 3, 32, 32], float32 scaled to [0,1]
+		labels (LongTensor): shape [N]
+	"""
+	# choose files
+	if train:
+		batch_files = [f"data_batch_{i}" for i in range(1, 6)]
+	else:
+		batch_files = ["test_batch"]
 
-    all_imgs = []
-    all_lbls = []
+	all_imgs = []
+	all_lbls = []
 
-    for fname in batch_files:
-        path = os.path.join(data_dir, fname)
-        with open(path, 'rb') as f:
-            batch = pickle.load(f, encoding='latin1')
+	for fname in batch_files:
+		path = os.path.join(data_dir, fname)
+		with open(path, 'rb') as f:
+			batch = pickle.load(f, encoding='latin1')
 
-        # reshape and normalize
-        data = batch['data']                    # numpy (10000, 3072)
-        data = data.reshape(-1, 3, img_size, img_size)      # (10000, 3, 32, 32)
-        data = torch.from_numpy(data).float() / 255.0
+		# reshape and normalize
+		data = batch['data']                    # numpy (10000, 3072)
+		data = data.reshape(-1, 3, img_size, img_size)      # (10000, 3, 32, 32)
+		data = torch.from_numpy(data).float() / 255.0
 
-        labels = torch.tensor(batch['labels'], dtype=torch.long)
+		labels = torch.tensor(batch['labels'], dtype=torch.long)
 
-        all_imgs.append(data)
-        all_lbls.append(labels)
+		all_imgs.append(data)
+		all_lbls.append(labels)
 
-    images = torch.cat(all_imgs, dim=0)   # e.g. (50000, 3, 32, 32) if train
-    labels = torch.cat(all_lbls, dim=0)   # e.g. (50000,)
+	images = torch.cat(all_imgs, dim=0)   # e.g. (50000, 3, 32, 32) if train
+	labels = torch.cat(all_lbls, dim=0)   # e.g. (50000,)
 
-    return images, labels
+	return images, labels
 
 
 class ImgClassificationDataset(Dataset):
@@ -192,24 +192,31 @@ class FewShotDataset(nn.Module):
 		# sample n_way classes
 		sampled_classes = random.sample(self.classes, self.n_classes)
 
+		# convert global labels to local episode labels(0. .. n_classes-1)
+		class2local = {g: i for i, g in enumerate(sampled_classes)}
+
 		supp_idxs = []
 		query_idxs = []
-		#print(f"Sampled classes: {sampled_classes}")
-		for cl in sampled_classes:
-			#print(len(self.idx_by_class[cl]), "samples for class", cl)
-			#print(f"Sampling {self.n_supp + self.n_queries} indices for class {cl}")
-			idxs = random.sample(self.idx_by_class[cl], self.n_supp + self.n_queries)
-			#print(f"Class {cl} indices: {idxs}")
-			supp_idxs += idxs[:self.n_supp]
-			query_idxs += idxs[self.n_supp:]
+		for g in sampled_classes:
+			ids = random.sample(self.idx_by_class[g], self.n_supp + self.n_queries)
+			supp_idxs.extend(ids[:self.n_supp])
+			query_idxs.extend(ids[self.n_supp:])
+
 
 		supp_imgs = self.data[supp_idxs]
 		query_imgs = self.data[query_idxs]
-		supp_labels = torch.LongTensor(self.labels[supp_idxs])
-		query_labels = torch.LongTensor(self.labels[query_idxs])
+		supp_labels = torch.LongTensor([
+			class2local[self.labels[idx]] for idx in supp_idxs
+		])
+		query_labels = torch.LongTensor([
+			class2local[self.labels[idx]] for idx in query_idxs
+		])
 
-		#print(f"Supp imgs shape: {supp_imgs.shape}, Supp labels shape: {supp_labels.shape}")
-		#print(f"Query imgs shape: {query_imgs.shape}, Query labels shape: {query_labels.shape}")
+
+		if self.transform:
+			supp_imgs = torch.stack([self.transform(transforms.ToPILImage()(img)) for img in supp_imgs])
+			query_imgs = torch.stack([self.transform(transforms.ToPILImage()(img)) for img in query_imgs])
+
 		return supp_imgs, supp_labels, query_imgs, query_labels
 		
 

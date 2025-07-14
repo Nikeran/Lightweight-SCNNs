@@ -35,6 +35,7 @@ def train_model(
 	ce_fn = criterion#nn.CrossEntropyLoss()
 	koleo_fn = KoLeoLoss()
 	#sinkhorn_fn = SinkhornCentering(iters=3, eps=0.04) 
+	n_batches = len(train_loader)
 
 	print(f"\n=== Training baseline: {name} ===")
 	model_start_time = time.time()
@@ -47,8 +48,10 @@ def train_model(
 		running_loss = 0.0
 		correct = 0
 		total = 0
+		batch_idx=0
 		for inputs, targets in train_loader:
-			print(inputs.shape, targets.shape)
+			print(f"Batch idx: {batch_idx} of {n_batches}")
+			batch_idx += 1
 			inputs, targets = inputs.to(device), targets.to(device)
 			optimizer.zero_grad()
 			feat, outputs = model(inputs)
