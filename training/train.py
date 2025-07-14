@@ -14,6 +14,19 @@ def format_time(seconds: float) -> str:
 	hrs, mins = divmod(mins, 60)
 	return f"{hrs}h{mins:02d}m{sec:02d}s"
 
+def save_checkpoint(model, optimizer, epoch, loss, name, folder="checkpoints"):
+    os.makedirs(folder, exist_ok=True)
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss,
+    }
+    path = os.path.join(folder, f"ckpt_epoch_{epoch:03d}_{name}.pt")
+    torch.save(checkpoint, path)
+    print(f"Saved checkpoint: {path}")
+
+
 # The stand-alone training function for one baseline model
 def train_model(
 	name: str,
@@ -49,8 +62,9 @@ def train_model(
 		correct = 0
 		total = 0
 		batch_idx=0
+		print()
 		for inputs, targets in train_loader:
-			print(f"Batch idx: {batch_idx} of {n_batches}")
+			print(f"Batch idx: {batch_idx} of {n_batches}", end="\r")
 			batch_idx += 1
 			inputs, targets = inputs.to(device), targets.to(device)
 			optimizer.zero_grad()
@@ -61,7 +75,7 @@ def train_model(
 			# sinkhorn lossba
 			#Q = sinkhorn_fn(outputs)
 			# KoLeo loss
-			k_loss = koleo_fn(outputs)
+			#k_loss = koleo_fn(outputs)
 			# Combine losses
 			loss = ce_loss #+ 0.1 * k_loss
 
@@ -75,7 +89,10 @@ def train_model(
 
 		train_loss = running_loss / total
 		train_acc = correct / total
+		print()
 
+		save_checkpoint(model, optimizer, epoch, train_loss, name)
+		
 		# Validate on test set
 		model.eval()
 		val_running_loss = 0.0
@@ -111,8 +128,10 @@ def train_model(
 			f"ETA={format_time(remaining_time)}"
 		)
 
+
 	total_time = time.time() - model_start_time
 	print(f"--- Finished {name} (total_time={format_time(total_time)}) ---\n")
+
 
 
 # ProtoNet training function
