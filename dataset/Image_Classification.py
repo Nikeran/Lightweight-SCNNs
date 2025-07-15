@@ -191,11 +191,7 @@ class FewShotDataset(Dataset):
 
 		# Load data
 		self.data = data#.numpy()
-		if isinstance(self.data[0], np.ndarray):
-			self.data = torch.stack([transforms.ToPILImage()(img) for img in self.data])
-
-		self.labels = labels
-		
+		self.labels = labels#.numpy()
 		self.transform = transform
 
 		# Create support and querry structures
@@ -236,6 +232,11 @@ class FewShotDataset(Dataset):
 
 
 		if self.transform:
+			if isinstance(supp_imgs[0], np.ndarray):
+				supp_imgs = [transforms.ToPILImage()(img) for img in supp_imgs]
+				query_imgs = [transforms.ToPILImage()(img) for img in query_imgs]
+			supp_imgs = [img.convert("RGB") for img in supp_imgs]
+			query_imgs = [img.convert("RGB") for img in query_imgs]
 			supp_imgs = torch.stack([self.transform(img) for img in supp_imgs])
 			query_imgs = torch.stack([self.transform(img) for img in query_imgs])
 
