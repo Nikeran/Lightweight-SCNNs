@@ -67,6 +67,7 @@ def train_model(
 			print(f"Batch idx: {batch_idx} of {n_batches}", end="\r")
 			batch_idx += 1
 			inputs, targets = inputs.to(device), targets.to(device)
+			#print(f"Inputs shape: {inputs.shape}, Targets shape: {targets.shape}")
 			optimizer.zero_grad()
 			feat, outputs = model(inputs)
 			#print(outputs.shape, targets.shape)

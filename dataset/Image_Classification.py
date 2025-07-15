@@ -3,10 +3,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
-from torchvision import transforms
+from torchvision import transforms, datasets
 from collections import defaultdict
 import random
 import pickle
+from PIL import Image
 
 def load_cifar10(data_dir, train=True, img_size=32):
 	"""
@@ -53,7 +54,7 @@ def load_cifar10(data_dir, train=True, img_size=32):
 
 class ImgClassificationDataset(Dataset):
 	"""
-	Generic image classification dataset class.
+	Generic image classification dataset class from data.
 	3D RGB images uint8, labels as integers.
 	"""
 	def __init__(self, data, labels, transform=None):
@@ -66,12 +67,39 @@ class ImgClassificationDataset(Dataset):
 	
 	def __getitem__(self, idx):
 		img = self.data[idx]
-		img = transforms.ToPILImage()(img)
+
+		if isinstance(img, np.ndarray):
+			img = transforms.ToPILImage()(img)
+		img = img.convert("RGB")
 		if self.transform:
 			img = self.transform(img)
+
+		
 		label = int(self.labels[idx])
 		return img, label
 
+
+class ImgClassificationDatasetHF(Dataset):
+    """
+    Wrapper for Img class using a Hugging Face Dataset object.
+    Expects dataset items to be dicts with keys: 'image', 'label'
+    """
+    def __init__(self, hf_dataset, transform=None):
+        self.dataset = hf_dataset
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        item = self.dataset[idx]
+        img = item['image']  # PIL.Image
+        label = item['label']
+
+        if self.transform:
+            img = self.transform(img)
+
+        return img, label
 
 
 class CIFAR10C(Dataset):
@@ -99,61 +127,51 @@ class CIFAR10C(Dataset):
 	
 
 class ImageNetC(Dataset):
-	"""
-	A PyTorch Dataset for ImageNet‐C.  
-	We expect IMAGENET_C_ROOT to contain directories like `gaussian_blur/1/…`, `gaussian_blur/2/…`, etc.
-	We walk all corruption types and severities, collect all image paths, then map filename → label using the dictionary above.
-	"""
-	def __init__(self, root: str, filename_to_label: dict, transform=None):
-		"""
-		root: path to “imagenet-c” folder (e.g. "/…/imagenet/imagenet-c")
-		filename_to_label: dict mapping "ILSVRC2012_val_00000001.JPEG" -> integer class (0–999)
-		transform: torchvision transforms to apply to each corrupted image
-		"""
-		super().__init__()
-		self.root = Path(root)
-		self.filename_to_label = filename_to_label
-		self.transform = transform
+    """
+    PyTorch Dataset for folder-based ImageNet-C:
+    imagenet-c/<corruption>/<severity>/<class>/*.JPEG
+    """
+    def __init__(self, root_dir, transform=None):
+        self.samples = []
+        self.transform = transform
 
-		self.samples = []  # will hold tuples: (image_path, label, corruption_name, severity_int)
+        # Loop through all corruptions and severities
+        for corruption in sorted(os.listdir(root_dir)):
+            corruption_path = os.path.join(root_dir, corruption)
+            if not os.path.isdir(corruption_path):
+                continue
 
-		# Walk through every “corruption_name” directory under root:
-		for corruption_dir in sorted(self.root.iterdir()):
-			if not corruption_dir.is_dir():
-				continue
-			corruption_name = corruption_dir.name  # e.g. "gaussian_blur"
-			# Inside each corruption directory, there should be five subfolders: "1", "2", … "5"
-			for severity_folder in sorted(corruption_dir.iterdir()):
-				if not severity_folder.is_dir():
-					continue
-				try:
-					severity = int(severity_folder.name)  # 1 through 5
-				except ValueError:
-					# skip if folder isn’t named “1”–“5”
-					continue
+            for severity in sorted(os.listdir(corruption_path)):
+                severity_path = os.path.join(corruption_path, severity)
+                if not os.path.isdir(severity_path):
+                    continue
 
-				# Now gather all JPEGs in this severity folder:
-				for img_path in severity_folder.glob("*.JPEG"):
-					fname = img_path.name  # e.g. "ILSVRC2012_val_00000001.JPEG"
-					if fname not in self.filename_to_label:
-						# If a filename isn’t found in the clean‐val mapping, skip it
-						continue
-					label = self.filename_to_label[fname]
-					self.samples.append((str(img_path), label, corruption_name, severity))
+                # Use ImageFolder to get (image_path, label) pairs
+                subset = datasets.ImageFolder(severity_path)
 
-		print(f"Collected {len(self.samples)} ImageNet‐C samples across all corruptions/severities.")
+                for img_path, label in subset.samples:
+                    self.samples.append({
+                        'path': img_path,
+                        'label': label,
+                        'corruption': corruption,
+                        'severity': int(severity),
+                        'class_to_idx': subset.class_to_idx
+                    })
 
-	def __len__(self):
-		return len(self.samples)
+        # Build global class-to-idx mapping
+        self.class_to_idx = self.samples[0]['class_to_idx'] if self.samples else {}
 
-	def __getitem__(self, idx):
-		path, label, corruption_name, severity = self.samples[idx]
-		img = Image.open(path).convert("RGB")
-		if self.transform is not None:
-			img = self.transform(img)
-		# We return a tuple of (tensor_img, label, corruption_name, severity)
-		return img, label, corruption_name, severity
-	
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+        img = Image.open(sample['path']).convert('RGB')
+
+        if self.transform:
+            img = self.transform(img)
+
+        return img, sample['label'], sample['corruption'], sample['severity']
 
 class FewShotDataset(nn.Module):
 	"""

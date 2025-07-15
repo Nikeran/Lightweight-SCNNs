@@ -63,3 +63,38 @@ def get_imagenet_transforms(split: str = 'train') -> transforms.Compose:
             transforms.ToTensor(),
             transforms.Normalize(imagenet_mean, imagenet_std),
         ])
+    
+def get_tiny_imagenet_transforms(split: str = 'train') -> transforms.Compose:
+    """
+    Returns Tiny ImageNet transforms for 'train' or 'test' split.
+    """
+    tiny_imagenet_mean = (0.4802, 0.4481, 0.3975)
+    tiny_imagenet_std  = (0.2770, 0.2691, 0.2821)
+
+    if split == 'train':
+        return transforms.Compose([
+            transforms.RandomResizedCrop(64),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(10),
+            transforms.ColorJitter(
+                brightness=0.3,
+                contrast=0.3,
+                saturation=0.3,
+                hue=0.1
+            ),
+            transforms.ToTensor(),
+            transforms.Normalize(tiny_imagenet_mean, tiny_imagenet_std),
+            transforms.RandomErasing(
+                p=0.5,
+                scale=(0.02, 0.2),
+                ratio=(0.3, 3.3),
+                value='random'
+            ),
+        ])
+    elif split == 'test':
+        return transforms.Compose([
+            transforms.Resize(64),
+            transforms.CenterCrop(64),
+            transforms.ToTensor(),
+            transforms.Normalize(tiny_imagenet_mean, tiny_imagenet_std),
+        ])
