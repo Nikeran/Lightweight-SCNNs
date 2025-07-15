@@ -173,7 +173,7 @@ class ImageNetC(Dataset):
 
         return img, sample['label'], sample['corruption'], sample['severity']
 
-class FewShotDataset(nn.Module):
+class FewShotDataset(Dataset):
 	"""
 	Same generic image dataset, but this time for each individual sample we give few-shot examples for calibration
 	"""
@@ -191,7 +191,11 @@ class FewShotDataset(nn.Module):
 
 		# Load data
 		self.data = data#.numpy()
-		self.labels = labels.numpy()
+		if isinstance(self.data[0], np.ndarray):
+			self.data = torch.stack([transforms.ToPILImage()(img) for img in self.data])
+
+		self.labels = labels
+		
 		self.transform = transform
 
 		# Create support and querry structures
@@ -232,8 +236,8 @@ class FewShotDataset(nn.Module):
 
 
 		if self.transform:
-			supp_imgs = torch.stack([self.transform(transforms.ToPILImage()(img)) for img in supp_imgs])
-			query_imgs = torch.stack([self.transform(transforms.ToPILImage()(img)) for img in query_imgs])
+			supp_imgs = torch.stack([self.transform(img) for img in supp_imgs])
+			query_imgs = torch.stack([self.transform(img) for img in query_imgs])
 
 		return supp_imgs, supp_labels, query_imgs, query_labels
 		

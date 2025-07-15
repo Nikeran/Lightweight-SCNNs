@@ -57,3 +57,20 @@ class ProtoNet18(nn.Module):
         # logits are negative distances
         logits = -dists
         return logits
+
+
+class ProtoNet50(nn.Module):
+    def __init__(self, backbone, embedding_dim=2048, **backbone_kwargs):
+        """
+        backbone: a nn.Module class (e.g. ResNet50)
+        embedding_dim: dimensionality of the output embeddings
+        backbone_kwargs: any kwargs passed to backbone constructor (e.g. num_classes)
+        """
+        super(ProtoNet50, self).__init__()
+        # instantiate backbone and remove its final FC
+        self.encoder = backbone(**backbone_kwargs)
+        self.encoder.fc = nn.Identity()
+        self.embedding_dim = embedding_dim
+
+    def forward(self, support_imgs, support_labels, query_imgs):
+        return ProtoNet18(self.encoder, self.embedding_dim).forward(support_imgs, support_labels, query_imgs)
