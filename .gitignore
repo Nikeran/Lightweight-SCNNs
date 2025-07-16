@@ -5,4 +5,5 @@ data/*
 *.pyc
 *.tar
 *.pth
+*.pt
 __pycache__/

@@ -73,6 +73,31 @@ class ModifiedResNet18(nn.Module):
         feat = self.pool(x).flatten(1)         # -> (B, C)
         logits = self.classifier(feat)         # -> (B, num_classes)
         return feat, logits
+    
+class ModifiedResNet50(nn.Module):
+    def __init__(self, num_classes=10, **kwargs):
+        super().__init__()
+        full = build_model(num_classes, **kwargs)
+        # everything except the final fc:
+        self.backbone = nn.Sequential(
+            full.conv1,
+            full.bn1,
+            full.relu,
+            full.maxpool,
+            full.layer1,
+            full.layer2,
+            full.layer3,
+            full.layer4,
+        )
+        # global pooling + fc:
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.classifier = full.fc
+
+    def forward(self, x):
+        x = self.backbone(x)                   # -> (B, C, H, W)
+        feat = self.pool(x).flatten(1)         # -> (B, C)
+        logits = self.classifier(feat)         # -> (B, num_classes)
+        return feat, logits
 
 
 def build_model(num_classes=10, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False):
