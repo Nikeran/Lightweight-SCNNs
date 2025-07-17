@@ -9,7 +9,6 @@ class AdaBatchNorm2d(nn.Module):
         self.bn = nn.BatchNorm2d(num_features=num_features, eps=eps, momentum=momentum,
                                  affine=affine, track_running_stats=track_running_stats) # (B, num_features, H, W)
         # U: interpolation factor
-        self.bn = bnn
         self.U = U
 
     def forward(self, x):
