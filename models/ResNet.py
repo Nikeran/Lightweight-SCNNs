@@ -183,32 +183,32 @@ class ModifiedResNet50Block(nn.Module):
         self.cbam = CBAM(out_channels) if use_cbam else None
         self.proto = PrototypeAlignment(out_channels) if use_proto else None
 
-        def forward(self, x):
-            identity = x
+    def forward(self, x):
+        identity = x
 
-            out = self.conv1(x)
-            out = self.bn1(out)
-            out = self.relu(out)
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
 
-            out = self.conv2(out)
-            out = self.bn2(out)
-            out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
 
-            out = self.conv3(out)
-            out = self.bn3(out)
+        out = self.conv3(out)
+        out = self.bn3(out)
 
-            if self.downsample is not None:
-                identity = self.downsample(x)
+        if self.downsample is not None:
+            identity = self.downsample(x)
 
-            out += identity
-            out = self.relu(out)
+        out += identity
+        out = self.relu(out)
 
-            if self.cbam is not None:
-                out = self.cbam(out)
-            if self.proto is not None:
-                out = self.proto(out)
+        if self.cbam is not None:
+            out = self.cbam(out)
+        if self.proto is not None:
+            out = self.proto(out)
 
-            return out
+        return out
 
 
 class ResNet50(nn.Module):
