@@ -42,9 +42,62 @@ class ResBlock18(nn.Module):
 
         return out
     
+
+class ModifiedResNet18Block(nn.Module):
+    def __init__(self, in_channels, out_channels, stride=1, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False, use_TC=False):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = (AdaBatchNorm2d(out_channels) if use_adabn else nn.BatchNorm2d(out_channels))
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        
+        if use_rbn:
+            self.bn2 = RBN(out_channels)
+        else:
+            self.bn2 = (AdaBatchNorm2d(out_channels) if use_adabn else nn.BatchNorm2d(out_channels))
+        
+        self.downsample = None
+        if stride != 1 or in_channels != out_channels:
+            self.downsample = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+        
+        self.cbam = CBAM(out_channels) if use_cbam else None
+        self.proto = PrototypeAlignment(out_channels) if use_proto else None
+
+    def forward(self, x):
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity
+        out = self.relu(out)
+
+        if self.cbam is not None:
+            out = self.cbam(out)
+        if self.proto is not None:
+            out = self.proto(out)
+
+        return out
+
+    
 class ResNet18(nn.Module):
-    def __init__(self, num_classes=1000):
+    def __init__(self, num_classes=1000, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False):
         super(ResNet18, self).__init__()
+        self.use_adabn = use_adabn
+        self.use_cbam = use_cbam
+        self.use_proto = use_proto
+        self.use_rbn = use_rbn
+
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
@@ -60,9 +113,9 @@ class ResNet18(nn.Module):
 
     def _make_layer(self, in_channels, out_channels, blocks, stride):
         layers = []
-        layers.append(ResBlock18(in_channels, out_channels, stride))
+        layers.append(ModifiedResNet18Block(in_channels, out_channels, stride, self.use_adabn, self.use_cbam, self.use_proto, self.use_rbn))
         for _ in range(1, blocks):
-            layers.append(ResBlock18(out_channels, out_channels))
+            layers.append(ModifiedResNet18Block(out_channels, out_channels, 1, self.use_adabn, self.use_cbam, self.use_proto, self.use_rbn))
         return nn.Sequential(*layers)
 
     def forward(self, x):
@@ -134,7 +187,8 @@ class ModifiedResNet50Block(nn.Module):
                     use_adabn=False,
                     use_cbam=False,
                     use_proto=False,
-                    use_rbn=False):
+                    use_rbn=False,
+                    use_TC=False):
         super().__init__()
         out_channels = out_channels * 4
 
