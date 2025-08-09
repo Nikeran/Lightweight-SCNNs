@@ -47,52 +47,12 @@ class ModifiedResNetBlock(nn.Module):
         if self.proto is not None:
             out = self.proto(out)
         return out
-    
-
-class ModifiedResNet50Block(nn.Module):
-    def __init__(self, original_block, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False):
-        super().__init__()
-        self.conv1 = original_block.conv1
-        self.bn1 = (AdaBatchNorm2d(original_block.bn1.num_features) if use_adabn
-                    else original_block.bn1)
-        self.relu = original_block.relu
-        self.conv2 = original_block.conv2
-        if use_rbn:
-            self.bn2 = RBN(original_block.bn2.num_features)
-        else:
-            self.bn2 = (AdaBatchNorm2d(original_block.bn2.num_features) if use_adabn
-                        else original_block.bn2)
-        self.conv3 = original_block.conv3
-        self.bn3 = original_block.bn3
-        self.downsample = original_block.downsample
-        self.cbam = CBAM(original_block.bn3.num_features) if use_cbam else None
-        self.proto = PrototypeAlignment(original_block.bn3.num_features) if use_proto else None
-
-    def forward(self, x):
-        identity = x
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
-        out = self.conv3(out)
-        out = self.bn3(out)
-        if self.downsample is not None:
-            identity = self.downsample(x)
-        out += identity
-        out = self.relu(out)
-        if self.cbam is not None:
-            out = self.cbam(out)
-        if self.proto is not None:
-            out = self.proto(out)
-        return out
 
 
 class ModifiedResNet18(nn.Module):
     def __init__(self, num_classes=10, **kwargs):
         super().__init__()
-        full = build_model18(num_classes, **kwargs)
+        full = build_model(num_classes, **kwargs)
         # everything except the final fc:
         self.backbone = nn.Sequential(
             full.conv1,
@@ -113,12 +73,9 @@ class ModifiedResNet18(nn.Module):
         feat = self.pool(x).flatten(1)         # -> (B, C)
         logits = self.classifier(feat)         # -> (B, num_classes)
         return feat, logits
-    
 
 
-
-
-def build_model18(num_classes=10, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False):
+def build_model(num_classes=10, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False):
     model = models.resnet18(pretrained=False)
     model.conv1 = nn.Conv2d(3,64,3,1,1,bias=False)
     # always keep initial BN intact (or AdaBN), RBN only in blocks
@@ -143,27 +100,4 @@ def build_model18(num_classes=10, use_adabn=False, use_cbam=False, use_proto=Fal
     return model
 
 
-def build_model50(num_classes=10, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False):
-    model = models.resnet50(pretrained=False)
-    model.conv1 = nn.Conv2d(3,64,3,1,1,bias=False)
-    # always keep initial BN intact (or AdaBN), RBN only in blocks
-    model.bn1 = model.bn1
-    model.maxpool = model.maxpool
-    print("model: ", model)
-    for name, module in model.named_children():
-        print(f"Processing {name}...")
-        if name.startswith('layer'):
-            blocks = []
-            for blk in module:
-                blocks.append(ModifiedResNet50Block(
-                    blk,
-                    use_adabn=use_adabn,
-                    use_cbam=use_cbam,
-                    use_proto=use_proto,
-                    use_rbn=use_rbn
-                ))
-            setattr(model, name, nn.Sequential(*blocks))
-    print("Model blocks modified successfully.")
-    model.fc = nn.Linear(model.fc.in_features, num_classes)
-    return model
 

@@ -52,7 +52,7 @@ def evaluate_model(model: torch.nn.Module, loader: DataLoader, device: torch.dev
         for images, labels in loader:
             images = images.to(device)                # (B, 3, 32, 32)
             labels = labels.to(device)                # y: (B,)
-            logits = model(images)               # logits: (B, C)
+            _, logits = model(images)               # logits: (B, C)
             probs = torch.softmax(logits, dim=1)
             preds = probs.argmax(dim=1)     # (,)
 
