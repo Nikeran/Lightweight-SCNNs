@@ -197,7 +197,8 @@ class ModifiedResNet50Block(nn.Module):
 					use_cbam=False,
 					use_proto=False,
 					use_rbn=False,
-					use_TC=False):
+					use_TC=False,
+					use_scb=False):
 		super().__init__()
 		out_channels = out_channels * 4
 
@@ -216,6 +217,9 @@ class ModifiedResNet50Block(nn.Module):
 								stride=1,
 								padding=1,
 								bias=False)
+		
+		self.scb = SelfCorrectingBlock(out_channels) if use_scb else None
+
 		if use_rbn:
 			self.bn2 = RBN(out_channels)
 		else:
@@ -254,6 +258,10 @@ class ModifiedResNet50Block(nn.Module):
 		out = self.relu(out)
 
 		out = self.conv2(out)
+
+		if self.scb is not None:
+			out = self.scb(out)
+
 		out = self.bn2(out)
 		out = self.relu(out)
 
@@ -275,12 +283,13 @@ class ModifiedResNet50Block(nn.Module):
 
 
 class ResNet50(nn.Module):
-	def __init__(self, num_classes=1000, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False):
+	def __init__(self, num_classes=1000, use_adabn=False, use_cbam=False, use_proto=False, use_rbn=False, use_scb=False):
 		super(ResNet50, self).__init__()
 		self.use_adabn = use_adabn
 		self.use_cbam = use_cbam
 		self.use_proto = use_proto
 		self.use_rbn = use_rbn
+		self.use_scb = use_scb
 
 		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
 		self.bn1 = nn.BatchNorm2d(64)
@@ -297,9 +306,9 @@ class ResNet50(nn.Module):
 
 	def _make_layer(self, in_channels, out_channels, blocks, stride):
 		layers = []
-		layers.append(ModifiedResNet50Block(in_channels, out_channels // 4, stride, self.use_adabn, self.use_cbam, self.use_proto, self.use_rbn))
+		layers.append(ModifiedResNet50Block(in_channels, out_channels // 4, stride, self.use_adabn, self.use_cbam, self.use_proto, self.use_rbn, self.use_scb))
 		for _ in range(1, blocks):
-			layers.append(ModifiedResNet50Block(out_channels // 4 * 4, out_channels // 4, 1, self.use_adabn, self.use_cbam, self.use_proto, self.use_rbn))
+			layers.append(ModifiedResNet50Block(out_channels // 4 * 4, out_channels // 4, 1, self.use_adabn, self.use_cbam, self.use_proto, self.use_rbn, self.use_scb))
 		return nn.Sequential(*layers)
 
 	def forward(self, x):
